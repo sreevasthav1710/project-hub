@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { z } from 'zod';
 import { Zap, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import projectHubLogo from '@/assets/projecthub.png';
+
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -60,8 +62,15 @@ export default function Auth() {
         }
       } else {
         const { error } = await signIn(email, password);
+
         if (error) {
-          if (error.message.includes('Invalid login')) {
+          const message = error.message.toLowerCase();
+
+          if (message.includes('email') && message.includes('confirm')) {
+            setError(
+              'Please check your mail and verify your email before signing in.'
+            );
+          } else if (message.includes('invalid login')) {
             setError('Invalid email or password. Please try again.');
           } else {
             setError(error.message);
@@ -87,12 +96,8 @@ export default function Auth() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20 mb-4 glow-effect">
-            <Zap className="w-8 h-8 text-primary" />
+            <img src={projectHubLogo} alt="ProjectHub Logo" className="w-15 h-15 object-contain" />
           </div>
-          <h1 className="text-3xl font-bold">ProjectHub</h1>
-          <p className="text-muted-foreground mt-2">
-            {isSignUp ? 'Create your account' : 'Welcome back'}
-          </p>
         </div>
 
         {/* Form */}

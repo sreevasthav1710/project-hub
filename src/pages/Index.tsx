@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Zap, ArrowRight, Loader2 } from 'lucide-react';
+import projecthub from '@/assets/projecthub.png';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -29,8 +30,12 @@ export default function Index() {
       </div>
 
       <div className="relative text-center max-w-2xl animate-fade-in">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/20 mb-8 glow-effect pulse-glow">
-          <Zap className="w-10 h-10 text-primary" />
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20 mb-4 glow-effect">
+          <img
+            src={projecthub}
+            alt="ProjectHub Logo"
+              className="w-20 h-20 object-contain"
+            />
         </div>
         
         <h1 className="text-5xl font-bold mb-6 tracking-tight">

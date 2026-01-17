@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Project, ProjectStatus } from '@/types/database';
+import { Project, ProjectStatus, Profile } from '@/types/database';
 import BackButton from '@/components/BackButton';
 import StatusBadge from '@/components/StatusBadge';
 import TechStack from '@/components/TechStack';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import EmptyState from '@/components/EmptyState';
-import { Plus, FolderKanban, Pencil, Trash2, ExternalLink, Github, Loader2 } from 'lucide-react';
+import { Plus, FolderKanban, Pencil, Trash2, ExternalLink, Github, Loader2, X, Globe } from 'lucide-react';
+
+const ALLOWED_ROLES = ['Team Lead', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Designer', 'Other'];
+
 
 export default function Projects() {
   const { user, loading: authLoading } = useAuth();
@@ -39,14 +42,61 @@ export default function Projects() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) fetchProjects();
+    if (user) {
+      fetchProjects();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const fetchProjects = async () => {
-    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
-    setProjects((data as Project[]) || []);
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = supabase
+      .channel('projects_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
+        fetchProjects();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const fetchProjects = useCallback(async () => {
+    if (!user) return;
+    
+    // Fetch all projects
+    const { data: allProjects } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+    
+    // Fetch project memberships for the current user
+    const { data: userMemberships } = await supabase
+      .from('project_team')
+      .select('project_id')
+      .eq('user_id', user.id);
+    
+    const userProjectIds = new Set<string>();
+    
+    // Add projects where user is the creator
+    (allProjects || []).forEach(p => {
+      if (p.created_by === user.id) {
+        userProjectIds.add(p.id);
+      }
+    });
+    
+    // Add projects where user is a team member
+    (userMemberships || []).forEach(m => {
+      userProjectIds.add(m.project_id);
+    });
+    
+    // Filter projects to only show those the user is associated with
+    const filteredProjects = (allProjects || []).filter(p => userProjectIds.has(p.id));
+    
+    setProjects((filteredProjects as Project[]) || []);
     setLoading(false);
-  };
+  }, [user]);
+
 
   const resetForm = () => {
     setForm({ title: '', short_description: '', problem_statement: '', solution_description: '', tech_stack: '', github_url: '', deployed_url: '', download_url: '', status: 'in_progress' });
@@ -74,30 +124,48 @@ export default function Projects() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) return;
+
     setSaving(true);
+    try {
+      const projectData = {
+        title: form.title,
+        short_description: form.short_description || null,
+        problem_statement: form.problem_statement || null,
+        solution_description: form.solution_description || null,
+        tech_stack: form.tech_stack.split(',').map(t => t.trim()).filter(Boolean),
+        github_url: form.github_url || null,
+        deployed_url: form.deployed_url || null,
+        download_url: form.download_url || null,
+        status: form.status,
+      };
 
-    const projectData = {
-      title: form.title,
-      short_description: form.short_description || null,
-      problem_statement: form.problem_statement || null,
-      solution_description: form.solution_description || null,
-      tech_stack: form.tech_stack.split(',').map(t => t.trim()).filter(Boolean),
-      github_url: form.github_url || null,
-      deployed_url: form.deployed_url || null,
-      download_url: form.download_url || null,
-      status: form.status,
-    };
+      if (editingProject) {
+        const { error } = await supabase.from('projects').update(projectData).eq('id', editingProject.id);
+        if (error) {
+          console.error('Error updating project:', error);
+          alert(`Failed to update project: ${error.message}`);
+          setSaving(false);
+          return;
+        }
+      } else {
+        const { data, error } = await supabase.from('projects').insert({ ...projectData, created_by: user!.id }).select().single();
+        if (error) {
+          console.error('Error creating project:', error);
+          alert(`Failed to create project: ${error.message}`);
+          setSaving(false);
+          return;
+        }
+      }
 
-    if (editingProject) {
-      await supabase.from('projects').update(projectData).eq('id', editingProject.id);
-    } else {
-      await supabase.from('projects').insert({ ...projectData, created_by: user!.id });
+      setSaving(false);
+      setIsModalOpen(false);
+      resetForm();
+      fetchProjects();
+    } catch (err) {
+      console.error('Unexpected error in handleSubmit:', err);
+      alert('An unexpected error occurred. Please try again.');
+      setSaving(false);
     }
-
-    setSaving(false);
-    setIsModalOpen(false);
-    resetForm();
-    fetchProjects();
   };
 
   const handleDelete = async () => {
@@ -139,12 +207,17 @@ export default function Projects() {
                     <h3 className="text-lg font-semibold truncate">{project.title}</h3>
                     <StatusBadge status={project.status} />
                   </div>
-                  {project.short_description && <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{project.short_description}</p>}
+                  {project.problem_statement && (
+                    <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+                      {project.problem_statement}
+                    </p>
+                  )}
+
                   {project.tech_stack.length > 0 && <TechStack technologies={project.tech_stack} />}
                 </div>
                 <div className="flex items-center gap-2">
                   {project.github_url && <a href={project.github_url} target="_blank" rel="noopener noreferrer" className="btn-icon"><Github className="w-5 h-5" /></a>}
-                  {project.deployed_url && <a href={project.deployed_url} target="_blank" rel="noopener noreferrer" className="btn-icon"><ExternalLink className="w-5 h-5" /></a>}
+                  {project.deployed_url && <a href={project.deployed_url} target="_blank" rel="noopener noreferrer" className="btn-icon"><Globe className="w-5 h-5" /></a>}
                   <button onClick={() => navigate(`/projects/${project.id}`)} className="btn-icon"><ExternalLink className="w-5 h-5" /></button>
                   <button onClick={() => openEditModal(project)} className="btn-icon"><Pencil className="w-5 h-5" /></button>
                   <button onClick={() => setDeleteProject(project)} className="btn-icon text-destructive"><Trash2 className="w-5 h-5" /></button>
@@ -172,6 +245,8 @@ export default function Projects() {
             <div><label className="text-sm font-medium text-muted-foreground">Download URL</label><input value={form.download_url} onChange={(e) => setForm({ ...form, download_url: e.target.value })} className="input-field mt-1" type="url" /></div>
             <div><label className="text-sm font-medium text-muted-foreground">Status</label><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ProjectStatus })} className="input-field mt-1"><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="aborted">Aborted</option></select></div>
           </div>
+
+
           <div className="flex gap-3 pt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary flex-1">Cancel</button><button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingProject ? 'Save Changes' : 'Create Project'}</button></div>
         </form>
       </Modal>

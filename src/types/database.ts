@@ -81,4 +81,7 @@ export interface UserStats {
   projectsLed: number;
   totalHackathons: number;
   hackathonsLed: number;
+  upcomingHackathons: number;
+  ongoingHackathons: number;
+  completedHackathons: number;
 }

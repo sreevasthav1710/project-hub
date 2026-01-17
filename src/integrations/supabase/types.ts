@@ -166,7 +166,7 @@ export type Database = {
         }
         Relationships: []
       }
-      project_members: {
+      project_team: {
         Row: {
           created_at: string
           id: string
@@ -193,7 +193,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "project_members_project_id_fkey"
+            foreignKeyName: "project_team_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

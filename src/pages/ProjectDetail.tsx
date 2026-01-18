@@ -9,7 +9,7 @@ import TechStack from '@/components/TechStack';
 import Modal from '@/components/Modal';
 import { Pencil, Github, ExternalLink, Loader2, QrCode, Users, Plus, Trash2, X, Globe } from 'lucide-react';
 
-const ALLOWED_ROLES = ['Team Lead', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Designer', 'Other'];
+const ALLOWED_ROLES = ['Team Lead', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Designer', 'Cloud Engineer', 'Data Engineer', 'DevOps Engineer', 'AI Engineer', 'Security Engineer', 'Other'];
 
 interface TeamMember {
   id: string;

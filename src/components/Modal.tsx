@@ -36,7 +36,8 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className={`relative w-full ${sizeClasses[size]} glass-panel rounded-2xl animate-scale-in max-h-[90vh] overflow-hidden flex flex-col`}>
+      <div className={`relative w-full ${sizeClasses[size]} glass-panel rounded-2xl animate-scale-in max-h-[90vh] overflow-x-visible overflow-y-hidden
+ flex flex-col`}>
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-xl font-semibold">{title}</h2>
           <button onClick={onClose} className="btn-icon">
